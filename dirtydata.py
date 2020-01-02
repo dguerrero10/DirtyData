@@ -24,9 +24,85 @@ class DataFrameHelper:
         except AttributeError:
             return getattr(self.df, name)
 
+
+#Data Cleaning Suggestions
+    def clean_data(self):
+        try:
+            #Removing white space from column labels (start and end) and replacing space in betweenw with underscore
+            print("Removing white space from column labels and replacing with underscore...\n")
+            self.columns = self.columns.str.strip()
+            self.columns = self.columns.str.replace(' ','_')
+            print(self.columns)
+
+            columns = self.columns
+            column_length = len(columns)
+
+            col_position = 0
+            for i in range(1, column_length):
+                series = self.df.iloc[:, col_position]
+                try:
+                    #Checking if any string objects should be converted into number data type
+                    col_str_numeric = 100 * series.str.isnumeric().sum() / len(series)
+                    col_name = self.df.columns[col_position]
+
+                    if col_str_numeric > 0.1:
+                        drop_column = ask_user(f"Column '{col_name}' appears to have numbers as a string. Would you like to change the data type to numeric?\n [0] No\n [1] Yes\n \nEnter Option:")
+                        if drop_column == '1':
+                            self.df[col_position] = self.df[col_position].astype(int)
+
+                    #Checking to see if column row has only white space and removing it
+                    print(f"\nChecking column rows '{col_name}' for white space and removing items...")
+                    col_space = series.str.isspace()
+
+                    for index, value in col_space.items():
+                        if value == True:
+                            col_space.drop(col_space.index[index])
+
+                except AttributeError as e:
+                    pass
+
+                col_position += 1
+
+            print("Checking for percentage of null values...\n")
+
+            for col in self.columns:
+                null_values = 100 * self.columns.isnull().sum() / len(self.columns)
+
+                if null_values < .30:
+                    drop_col = ask_user(f"Column '{col}' has more than 30% null values, would you like to drop it?\n [0] No\n [1] Yes\n \nEnter Option: ")
+                    list(col)
+                    if drop_col == '1' or 'yes':
+                        self = self.drop(columns=col, axis=1, inplace=True)
+                    else:
+                        continue
+
+        except KeyboardInterrupt:
+            print("Aborting...")
+            return
+
 #Column Operations
     def n_percent_nulls(self):
         return self.isnull().sum() *100 / self.shape[0]
+
+    def get_missing_values(self):
+        print("\n\n")
+        zero_val = (self.df == 0.00).astype(int).sum(axis=0)
+        missing_val = self.df.isnull().sum()
+        missing_val_percent = 100 * self.df.isnull().sum() / len(self.df)
+        table = pd.concat([zero_val, missing_val, missing_val_percent], axis=1)
+        table = table.rename(
+        columns = {0 : 'Zero Values', 1 : 'Missing Values', 2 : '% of Total Values'})
+        table['Total Zero Missing Values'] = table['Zero Values'] + table['Missing Values']
+        table['% Total Zero Missing Values'] = 100 * table['Total Zero Missing Values'] / len(self.df)
+        table['Data Type'] = self.df.dtypes
+        table = table[
+        table.iloc[:,1] != 0].sort_values(
+        '% of Total Values', ascending=False).round(1)
+        print ("Your selected dataframe has " + str(self.df.shape[1]) + " columns and " + str(self.df.shape[0]) + " Rows.\n"
+            "There are " + str(table.shape[0]) +
+              " columns that have missing values.\n")
+        print(table)
+        print("\n\n")
 
     def get_columns(self):
         for index, col in enumerate(self.columns):
@@ -147,15 +223,21 @@ class DataFrameHelper:
                 if col == 'menu':
                     return
                 else:
-                    answ = ask_user("In what order?\n [1] Ascending\n [2] Descending\n Enter option:")
+                    answ = ask_user("In what order?\n [0] Ascending\n [1] Descending\n Enter option:")
 
                     try:
                         if answ == "1":
                             self.sort_values(col, ascending=True, inplace=True)
-                            print(f"\n{self.df[col]}")
+                            print(f"'\n Sorted '{col}' in ascending order"
+                            "\n--------------------------------------------------------------\n")
+                            print(f"{self.df[col].head(25)}")
+                            print(f"{self.df[col].tail(25)}")
                         elif answ == "2":
                             self.sort_values(col, ascending=False, inplace=True)
-                            print(f"\n{self.df[col]}")
+                            print(f"'\n Sorted '{col}' in descending order"
+                            "\n--------------------------------------------------------------\n")
+                            print(f"{self.df[col].head(25)}")
+                            print(f"{self.df[col].tail(25)}")
                         return
 
                     except TypeError:
@@ -328,41 +410,52 @@ class DataFrameHelper:
                         counter = 0
                         while counter < num:
                             col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
-                            id_columns_group.append(col)
-                            counter += 1
+                            if col == "menu":
+                                return
+                            else:
+                                id_columns_group.append(col)
+                                counter += 1
                         num = int(ask_user("How many columns do you want to perform the aggregation on?\n >> "))
                         if num > 1:
                             id_columns_aggr = []
                             counter = 0
                             while counter < num:
                                 col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
-                                id_columns_aggr.append(col)
-                                counter += 1
+                                if col == "menu":
+                                    return
+                                else:
+                                    id_columns_aggr.append(col)
+                                    counter += 1
 
-                            print("\n\n")
-                            print(self.groupby(id_columns_group)[id_columns_aggr].count())
-                            print("\n\n")
+                                    print("\n\n")
+                                    print(self.groupby(id_columns_group)[id_columns_aggr].count())
+                                    print("\n\n")
 
-                            return
+                                    return
 
                         elif num == 1:
                             col = ask_user("What column do you want to perform the aggregation on?\n >> ")
+                            if col == "menu":
+                                return
+                            else:
+                                print("\n\n")
+                                print(self.groupby(id_columns_group)[col].count())
+                                print("\n\n")
 
-                            print("\n\n")
-                            print(self.groupby(id_columns_group)[col].count())
-                            print("\n\n")
-
-                            return
+                                return
 
                     if num == 1:
                         id_column_group = ask_user("What column do you want to group on?\n >> ")
                         id_column_aggr = ask_user("What column do you want to perform the aggregation on?\n >>")
 
-                        print("\n\n")
-                        print(self.groupby(id_column_group)[id_column_aggr].count())
-                        print("\n\n")
+                        if id_column_group == "menu" or id_column_aggr == "menu":
+                            return
+                        else:
+                            print("\n\n")
+                            print(self.groupby(id_column_group)[id_column_aggr].count())
+                            print("\n\n")
 
-                        return
+                            return
 
             except KeyError as e:
                 print(e)
@@ -382,40 +475,52 @@ class DataFrameHelper:
                         counter = 0
                         while counter < num:
                             col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
-                            id_columns_group.append(col)
-                            counter += 1
+                            if col == "menu":
+                                return
+                            else:
+                                id_columns_group.append(col)
+                                counter += 1
                         num = int(ask_user("How many columns do you want to perform the operation on?\n >> "))
                         if num > 1:
                             id_columns_aggr = []
                             counter = 0
                             while counter < num:
                                 col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
-                                id_columns_aggr.append(col)
-                                counter += 1
+                                if col == "menu":
+                                    return
+                                else:
+                                    id_columns_aggr.append(col)
+                                    counter += 1
 
-                            print("\n\n")
-                            print(self.groupby(id_columns_group)[id_columns_aggr].mean())
-                            print("\n\n")
+                                    print("\n\n")
+                                    print(self.groupby(id_columns_group)[id_columns_aggr].mean())
+                                    print("\n\n")
 
-                            return
+                                    return
                         elif num == 1:
                             col = ask_user("What column do you want to perform the operation on?\n >> ")
 
-                            print("\n\n")
-                            print(self.groupby(id_columns_group)[col].mean())
-                            print("\n\n")
+                            if col == "menu":
+                                return
+                            else:
+                                print("\n\n")
+                                print(self.groupby(id_columns_group)[col].mean())
+                                print("\n\n")
 
-                            return
+                                return
 
                     if num == 1:
                         id_column_group = ask_user("What column do you want to group on?\n >> ")
                         id_column_aggr = ask_user("What column do you want to perform the operation on?\n >>")
 
-                        print("\n\n")
-                        print(self.groupby(id_column_group)[id_column_aggr].mean())
-                        print("\n\n")
+                        if id_column_group == "menu" or id_column_aggr == "menu":
+                            return
+                        else:
+                            print("\n\n")
+                            print(self.groupby(id_column_group)[id_column_aggr].mean())
+                            print("\n\n")
 
-                        return
+                            return
 
             except KeyError as e:
                 print(e)
@@ -429,7 +534,8 @@ class DataFrameHelper:
                 if col == "menu":
                     return
                 else:
-                    if self.df[col].dtype != np.number:
+                    if (self.df[col].dtype != np.int64 and self.df[col].dtype != np.int32 and self.df[col].dtype
+                        != np.int8 and self.df[col].dtype != np.float32 and self.df[col].dtype != np.float64):
                         print("\nNote: You are getting the min value of a column that is of type 'object', not 'number.'")
                         print(f"\nThe min value of column '{col}' is: ")
                         print("\n")
@@ -451,25 +557,24 @@ class DataFrameHelper:
     def max_value(self):
         while True:
             try:
-                col = ask_user("What column do you want to get the min value of?\n >> ")
-                if col == "menu":
+                col = ask_user("What column do you want to get the max value of?\n >> ")
+
+                if (self.df[col].dtype != np.int64 and self.df[col].dtype != np.int32 and self.df[col].dtype
+                    != np.int8 and self.df[col].dtype != np.float32 and self.df[col].dtype != np.float64):
+                    print("\nNote: You are getting the min value of a column that is of type 'object', not 'number.'")
+                    print(f"\nThe max value of column '{col}' is: ")
+                    print("\n")
+                    print(self.df[col].max())
+                    print("\n")
+
                     return
                 else:
-                    if self.df[col].dtype != np.number:
-                        print("\nNote: You are getting the min value of a column that is of type 'object', not 'number.'")
-                        print(f"\nThe min value of column '{col}' is: ")
-                        print("\n")
-                        print(self.df[col].min())
-                        print("\n")
+                    print(f"\nThe max value of column '{col}' is: ")
+                    print("\n")
+                    print(self.df[col].max())
+                    print("\n")
 
-                        return
-                    else:
-                        print(f"\nThe min value of column '{col}' is: ")
-                        print("\n")
-                        print(self.df[col].min())
-                        print("\n")
-
-                        return
+                    return
 
             except KeyError as e:
                 print(e)
@@ -484,21 +589,199 @@ class DataFrameHelper:
                 sns.distplot(self.df[col].dropna())
                 plt.show()
                 return
-            except KeyError as e:
+            except TypeError as e:
                 print(e)
 
+    def scatter_plot(self):
+        while True:
+            try:
+                x = ask_user("What column do you want to use for the 'x' axis?\n >> ")
+
+                if x == "menu":
+                    return
+                else:
+                    y = ask_user("What column do you want to use for the 'y' axis?\n >> ")
+                    print("Add options to your chart:\n [0] hue\n [1] style\n [2] finished\n")
+
+                    options_dict = {0:'hue', 1:'style', 3:'finished'}
+                    options_list = []
+
+                    while True:
+                        try:
+                            parameter = int(ask_user("What option would you like to apply to your chart?.\n >> "))
+                        except ValueError:
+                            print("Please pass either: '0', '1', '2'\n")
+                        try:
+                            if parameter == 0 and options_dict[0] != None:
+                                hue = ask_user("What column would you like to set as your hue?\n >> ")
+                                options_list.append(options_dict[0])
+                                options_dict.pop(0)
+                                print(f"Chosen options: {options_list}")
+                        except KeyError:
+                            print("This option is already applied.")
+
+                        try:
+                            if parameter == 1 and options_dict[1] != None:
+                                style = ask_user("What column would you like to set for style?\n >> ")
+                                options_list.append(options_dict[1])
+                                options_dict.pop(1)
+                                print(f"Chosen options: {options_list}")
+                        except KeyError:
+                            print("This option is already applied.")
+
+                        if len(options_list) == 2:
+                            sns.relplot(x=x, y=y, kind='scatter', hue=hue, style=style, data=self.df)
+                            print("Building your chart...")
+                            plt.show()
+                            return
+
+                        if parameter == 2 and len(options_list) == 0:
+                            sns.relplot(x=x, y=y, kind="scatter", data=self.df)
+                            print("Building your chart...")
+                            plt.show()
+                            return
+
+                        if parameter == 2 and len(options_list) >= 1:
+                            for i in options_list:
+                                if i == 'hue' and len(options_list) == 1:
+                                    sns.relplot(x=x, y=y, kind="scatter", hue=hue, data=self.df)
+                                    print("Building your chart...")
+                                    plt.show()
+                                    return
+                                elif i == 'style' and len(options_list) == 1:
+                                    sns.relplot(x=x, y=y, kind="scatter", style=style, data=self.df)
+                                    print("Building your chart...")
+                                    plt.show()
+                                    return
+                                elif len(option_list) == 2:
+                                    sns.relplot(x=x, y=y, kind="scatter", hue=hue, stlye=style, data=self.df)
+                                    print("Building your chart...")
+                                    plt.show()
+                                    return
+            except TypeError as e:
+                print(f"{e}\n")
+            except ValueError as e:
+                print(f"There is no such column: '{e}'.\n")
+            except DataError as e:
+                print(f"{e}\n")
+
+
+    def line_plot(self):
+        while True:
+            try:
+                x = ask_user("What column do you want to use for the 'x' axis?\n >> ")
+
+                if x == "menu":
+                    return
+                else:
+                    y = ask_user("What column do you want to use for the 'y' axis?\n >> ")
+                    print("Add options to your chart:\n [0] hue\n [1] style\n [2] finished\n")
+
+                    options_dict = { 0:'hue', 1:'style', 3:'finished' }
+                    options_list = []
+
+                    while True:
+                        try:
+                            parameter = int(ask_user("What option would you like to apply to your chart?.\n >> "))
+                        except ValueError:
+                            print("Please pass either: '0', '1', '2'\n")
+                        try:
+                            if parameter == 0 and options_dict[0] != None:
+                                hue = ask_user("What column would you like to set as your hue?\n >> ")
+                                options_list.append(options_dict[0])
+                                options_dict.pop(0)
+                                print(f"Chosen options: {options_list}")
+                        except KeyError:
+                            print("This option is already applied.")
+
+                        try:
+                            if parameter == 1 and options_dict[1] != None:
+                                style = ask_user("What column would you like to set for style?\n >> ")
+                                options_list.append(options_dict[1])
+                                options_dict.pop(1)
+                                print(f"Chosen options: {options_list}")
+                        except KeyError:
+                            print("This option is already applied.")
+
+                        if len(options_list) == 2:
+                            sort = ask_user("Do you want to set 'sort' to 'False'?]\n [0] No\n [1] Yes\n \nEnter Option:")
+                            if sort == '1':
+                                sns.relplot(x=x, y=y, kind='line', hue=hue, style=style, data=self.df, sort=True)
+                                print("Building your chart...")
+                                plt.show()
+                                return
+                            else:
+                                sns.relplot(x=x, y=y, kind='line', hue=hue, style=style, data=self.df, sort=False)
+                                print("Building your chart...")
+                                plt.show()
+                                return
+                        if parameter == 2 and len(options_list) == 0:
+                            sort = ask_user("Do you want to set 'sort' to 'False'?\n [0] No\n [1] Yes\n \nEnter Option:")
+                            if sort == '1':
+                                sns.relplot(x=x, y=y, kind="line", data=self.df, sort=False)
+                                print("Building your chart...")
+                                plt.show()
+                                return
+                            else:
+                                sns.relplot(x=x, y=y, kind="line", data=self.df, sort=True)
+                                print("Building your chart...")
+                                plt.show()
+                                return
+                        if parameter == 2 and len(options_list) >= 1:
+                            sort = ask_user("Do you want to set 'sort' to 'False'?\n [0] No\n [1] Yes\n \nEnter Option:")
+                            if sort == '1':
+                                for i in options_list:
+                                    if i == 'hue' and len(options_list) == 1:
+                                        sns.relplot(x=x, y=y, kind="line", hue=hue, data=self.df, sort=True)
+                                        print("Building your chart...")
+                                        plt.show()
+                                        return
+                                    elif i == 'style' and len(options_list) == 1:
+                                        sns.relplot(x=x, y=y, kind="line", style=style, data=self.df, sort=True)
+                                        print("Building your chart...")
+                                        plt.show()
+                                        return
+                                    elif len(option_list) == 2:
+                                        sns.relplot(x=x, y=y, kind="line", hue=hue, stlye=style, data=self.df, sort=True)
+                                        print("Building your chart...")
+                                        plt.show()
+                                        return
+                            else:
+                                for i in options_list:
+                                    if i == 'hue' and len(options_list) == 1:
+                                        sns.relplot(x=x, y=y, kind="line", hue=hue, data=self.df, sort=False)
+                                        print("Building your chart...")
+                                        plt.show()
+                                        return
+                                    elif i == 'style' and len(options_list) == 1:
+                                        sns.relplot(x=x, y=y, kind="line", style=style, data=self.df, sort=False)
+                                        print("Building your chart...")
+                                        plt.show()
+                                        return
+                                    elif len(options_list) == 2:
+                                        sns.relplot(x=x, y=y, kind="line", hue=hue, stlye=style, data=self.df, sort=False)
+                                        print("Building your chart...")
+                                        plt.show()
+                                        return
+            except TypeError as e:
+                print(f"{e}\n")
+            except ValueError as e:
+                print(f"There is no such column: '{e}'.\n")
+            except DataError as e:
+                print(f"{e}\n")
+
     def print_rows(self):
-        print(self.head(30))
+        print(self.head(15))
 
     def print_tail(self):
-        print(self.tail(30))
+        print(self.tail(15))
 
     def save_file(self):
         while True:
             try:
                 working_directory = os.getcwd()
                 print("\nNOTE: The file will be saved in your current directory and will not overwrite your original file.\n")
-                file_name = ask_user("Please provide a file name without the csv extension:\n >> ")
+                file_name = ask_user("Please provide a file name without the 'csv' extension:\n >> ")
                 self.df.to_csv(working_directory+'/'+file_name+'.csv', index=None, header=True)
                 print(f"Created file {file_name}\n")
                 print("\nThanks for cleaning your dirty data!")
@@ -537,6 +820,9 @@ def ask_user(message, type_=str, validator=lambda x: True, invalid="Not valid"):
     while True:
         try:
             x = type_(input(message))
+            x = x.strip()
+            if x == "clear":
+                clear_screen()
             if validator(x):
                 return x
             else:
@@ -570,9 +856,15 @@ import os
 import sys
 import pyreadline
 import pandas as pd
+from pandas.core.groupby.groupby import DataError
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import re
+import itertools
+import threading
+import time
+import sys
 from art import *
 
 def main():
@@ -583,7 +875,8 @@ def main():
         print(Fore.WHITE, Style.BRIGHT + comment)
         print(Fore.CYAN, Style.BRIGHT+">> Created by Dave Guerrero. Email me at daveabdouguerrero@gmail.com for any questions or feedback.\n\n")
 
-        rows_to_display = 30
+        rows_to_display = 15
+        sns.set(style = "darkgrid")
 
         print(Fore.WHITE + "\nHere are the files in your current directory you can use: "
         "{}\n".format(csv_files()))
@@ -598,6 +891,7 @@ def main():
         if display_all_columns == '1':
             pd.set_option('display.max_columns', None)
 
+        pd.set_option('display.max_rows', 500)
         df = DataFrameHelper.from_file(file_name)
         print(f"\nReading in {file_name}...\n")
         file_name = file_name.strip(".csv")
@@ -609,64 +903,108 @@ def main():
         "----------------------------------------------------------------------------------------------------------------------------------\n")
         print(df.head(30))
 
+        clean_data = ask_user("Would you like DirtyData to tidy up your data?\n [0] No\n [1] Yes\n \nEnter Option: ")
+
+        if clean_data.lower() == '1' or 'yes':
+            df.clean_data()
+
         while True:
-            option = ask_user("\nNOTE: Type 'menu' at any point to return to option menu, 'print' to display first 50 rows, 'tail' to display last 50 rows, 'clear' to clear the screen, and 'exit' to terminate the program. \n\nColumn Operations\n"
+            option = ask_user("\nNOTE: Type 'menu' at any point to return to option menu, 'print' to display first 50 rows,"
+                              " 'tail' to display last 50 rows, 'info' to get dataset information, 'clear' to clear the screen, and 'exit' to terminate the program. \n\nColumn Operations (Enter number or type keyword)\n"
             "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [0] Display Columns\n [1] Rename Column\n [2] Format Column\n [3] Melt Dataframe\n [4] Set Column as Index\n"
-                              " [5] Drop Column\n [6] Change Column Data Type\n [7] Fill NaN values\n [8] Display One Column\n [9] Sort Column\n [10] Display Variable Amnt. of Rows\n [11] Find Value in Column\n"
+                              " [0] Display Columns 'display_columns'\n\n [1] Rename Column 'rename'\n\n [2] Format Column 'format'\n\n [3] Melt Dataframe 'melt'\n\n [4] Set Column as Index 'set_index'\n\n"
+                              " [5] Drop Column 'drop_column'\n\n [6] Change Column Data Type 'change_d-type'\n\n [7] Fill NaN values 'fill_null'\n\n [8] Display One Column 'one_column'\n\n"
+                              " [9] Sort Column 'sort'\n\n [10] Display Variable Amnt. of Rows 'var_rows'\n\n [11] Find Value in Column 'find_value'\n\n"
                                "\nMath Operations\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [12] Sum Individual Column\n [13] Sum Two Columns\n [14] Group By Count\n [15] Group By Mean\n [16] Get Min Value Of Column\n [17] Get Max Value Of Column\n"
+                              " [12] Sum Individual Column 'sum_one'\n\n [13] Sum Two Columns 'sum_two'\n\n [14] Group By Count 'group_count'\n\n [15] Group By Mean 'group_mean'\n\n"
+                              " [16] Get Min Value Of Column 'min'\n\n [17] Get Max Value Of Column 'max'\n\n"
                                 "\nPlots & Charts\n"
-                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                               "[18] Distribution Plot\n"
+                              "----------------------------------------------------------------------------------------------------------------------------------\n"
+                              " [18] Distribution Plot 'dist_plot'\n\n [19] Scatter Plot 'scatter_plot'\n\n [20] Line Plot 'line_plot'\n\n"
                               " \nEnter Option:")
-            if option == "0":
+
+            if option == "0" or option.lower() == "all_columns":
                 df.get_columns()
-            if option == '1':
+
+            if option == '1' or option.lower() == "rename":
                 df.rename_column()
-            if option == '2':
+
+            if option == '2' or option.lower() == "format":
                 df.format_column()
-            if option == '3':
+
+            if option == '3' or option.lower() == "melt":
                 df.melt_dataframe()
-            if option == '4':
+
+            if option == '4' or option.lower() == "set_index":
                 df.set_index()
-            if option == '5':
+
+            if option == '5' or option.lower() == "drop_column":
                 df.drop_column()
-            if option == '6':
+
+            if option == '6' or option.lower() == "change_d-type":
                 df.change_column_d_type()
-            if option == '7':
+
+            if option == '7' or option.lower() == "fill_null":
                 df.fill_nan_values()
-            if option == "8":
+
+            if option == "8" or option.lower() == "one_column":
                 df.display_n_column()
-            if option == "9":
+
+            if option == "9" or option.lower() == "sort":
                 df.sort_column()
-            if option == "10":
+
+            if option == "10" or option.lower() == "var_rows":
                 df.display_n_rows()
-            if option == "11":
+
+            if option == "11" or option.lower() == "find_value":
                 df.find_value()
-            if option == "12":
+
+            if option == "12" or option.lower() == "sum_one":
                 df.sum_individual_column()
-            if option == "13":
+
+            if option == "13" or option.lower() == "sum_two":
                 df.sum_two_columns()
-            if option == "14":
+
+            if option == "14" or option.lower() == "group_count":
                 df.group_by_count()
-            if option == "15":
+
+            if option == "15" or option.lower() == "group_mean":
                 df.group_by_mean()
-            if option == "16":
+
+            if option == "16" or option.lower() == "min":
                 df.min_value()
-            if option == "17":
+
+            if option == "17" or option.lower() == "max":
                 df.max_value()
-            if option == "18":
+
+            if option == "18" or option.lower() == "dist_plot":
                 df.dist_plot()
+
+            if option == "19" or option.lower() == "scatter_plot":
+                df.scatter_plot()
+
+            if option == "20" or option.lower() == "line_plot":
+                df.line_plot()
+
             if option == "test":
                 df.search_columns()
+
             if option == "print":
                 df.print_rows()
+
             if option == "tail":
                 df.print_tail()
+
+            if option == "info":
+                df.info(verbose=True)
+
+            if option == "switch column display":
+                pd.set_option('display.max_columns', None)
+
             if option == "clear":
                 clear_screen()
+
             if option == 'exit':
                 df.EXIT()
 
