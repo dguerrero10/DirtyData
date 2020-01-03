@@ -29,7 +29,7 @@ class DataFrameHelper:
     def clean_data(self):
         try:
             #Removing white space from column labels (start and end) and replacing space in betweenw with underscore
-            print("Removing white space from column labels and replacing with underscore...\n")
+            print("\nRemoving any white space from column labels and replacing with underscore...\n")
             self.columns = self.columns.str.strip()
             self.columns = self.columns.str.replace(' ','_')
             print(self.columns)
@@ -51,7 +51,7 @@ class DataFrameHelper:
                             self.df[col_position] = self.df[col_position].astype(int)
 
                     #Checking to see if column row has only white space and removing it
-                    print(f"\nChecking column rows '{col_name}' for white space and removing items...")
+                    print(f"\nChecking rows in '{col_name}' for white space and removing items...")
                     col_space = series.str.isspace()
 
                     for index, value in col_space.items():
@@ -63,18 +63,20 @@ class DataFrameHelper:
 
                 col_position += 1
 
-            print("Checking for percentage of null values...\n")
+            print("\nChecking for percentage of null values...\n")
 
             for col in self.columns:
                 null_values = 100 * self.columns.isnull().sum() / len(self.columns)
-
-                if null_values < .30:
-                    drop_col = ask_user(f"Column '{col}' has more than 30% null values, would you like to drop it?\n [0] No\n [1] Yes\n \nEnter Option: ")
-                    list(col)
-                    if drop_col == '1' or 'yes':
-                        self = self.drop(columns=col, axis=1, inplace=True)
-                    else:
+                if null_values > .30:
+                    drop_col = ask_user(f"Column '{col}' has more than 30% null values, would you like to drop it?\n [0] No\n [1] Yes\n [2] Skip All\n \nEnter Option: ")
+                    if drop_col == "0" or drop_col == 'no':
                         continue
+                    if drop_col == '1' or drop_col == 'yes':
+                        list(col)
+                        self.drop(columns=col, axis=1, inplace=True)
+                        print(f"Dropping {col}...")
+                    if drop_col == '2' or drop_col == 'Skip All':
+                        return
 
         except KeyboardInterrupt:
             print("Aborting...")
@@ -105,7 +107,7 @@ class DataFrameHelper:
         print("\n\n")
 
     def get_columns(self):
-        for index, col in enumerate(self.columns):
+        for index, col in enumerate(self.df.columns):
             print("--------------------------------------------------------------\n")
             print(f"{index}: {col}")
 
@@ -527,52 +529,25 @@ class DataFrameHelper:
             except ValueError:
                 print("Please pass a number.")
 
-    def min_value(self):
+    def max_min_value(self):
         while True:
             try:
-                col = ask_user("What column do you want to get the min value of?\n >> ")
-                if col == "menu":
-                    return
-                else:
-                    if (self.df[col].dtype != np.int64 and self.df[col].dtype != np.int32 and self.df[col].dtype
-                        != np.int8 and self.df[col].dtype != np.float32 and self.df[col].dtype != np.float64):
-                        print("\nNote: You are getting the min value of a column that is of type 'object', not 'number.'")
-                        print(f"\nThe min value of column '{col}' is: ")
-                        print("\n")
-                        print(self.df[col].min())
-                        print("\n")
-                        return
-                    else:
-                        print(f"\nThe min value of column '{col}' is: ")
-                        print("\n")
-                        print(self.df[col].min())
-                        print("\n")
-                        return
-
-            except KeyError as e:
-                print(e)
-            except ValueError:
-                print("Please pass a number.")
-
-    def max_value(self):
-        while True:
-            try:
-                col = ask_user("What column do you want to get the max value of?\n >> ")
+                col = ask_user("What column do you want to get the max and min value of?\n >> ")
 
                 if (self.df[col].dtype != np.int64 and self.df[col].dtype != np.int32 and self.df[col].dtype
                     != np.int8 and self.df[col].dtype != np.float32 and self.df[col].dtype != np.float64):
-                    print("\nNote: You are getting the min value of a column that is of type 'object', not 'number.'")
+                    print("\nNote: You are getting the max and min value of a column that is of type 'object', not 'number.'")
                     print(f"\nThe max value of column '{col}' is: ")
-                    print("\n")
                     print(self.df[col].max())
-                    print("\n")
+                    print(f"\nThe min value of column '{col}' is: ")
+                    print(self.df[col].min())
 
                     return
                 else:
                     print(f"\nThe max value of column '{col}' is: ")
-                    print("\n")
                     print(self.df[col].max())
-                    print("\n")
+                    print(f"\nThe min value of column '{col}' is: ")
+                    print(self.df[col].min())
 
                     return
 
@@ -852,18 +827,39 @@ def clear_screen():
     else:
         os.system("clear")
 
+#Settings
+def settings():
+    while True:
+        try:
+            option = ask_user("\nWhat setting do you want to change?\n [0] Max Column Width\n [1] Max Rows Displayed\n [2] Max Columns Displayed\n [3] Help\n [4] Return to Main Menu\n\nEnter Option: ")
+
+            if option == '0' or option.lower() == 'Max Column Width':
+                max_column_width =  int(ask_user("What would you like to set the max width to?\n >> "))
+                pd.set_option('max_colwidth', max_column_width)
+            elif option == '1' or option.lower() == 'Max Rows Displayed':
+                max_rows =  int(ask_user("What would you like to set the max rows displayed to?\n >> "))
+                pd.set_option('display.max_rows', max_rows)
+            elif option == '2' or option.lower() == 'Max Columns Displayed':
+                max_columns =  int(ask_user("What would you like to set the max columns displayed to?\n >> "))
+                pd.set_option('display.max_columns', max_columns)
+            elif option == '3' or option.lower() == 'Help':
+                print("Official panda documentation for settings:")
+                print("https://pandas.pydata.org/pandas-docs/stable/user_guide/options.html")
+            elif option == '4' or option.lower() == 'Return to Main Menu':
+                return
+
+        except ValueError:
+            print("Please pass a valid option.")
+
 import os
 import sys
-import pyreadline
+import time
 import pandas as pd
 from pandas.core.groupby.groupby import DataError
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
-import itertools
-import threading
-import time
 import sys
 from art import *
 
@@ -873,7 +869,7 @@ def main():
         print(Fore.GREEN, Style.BRIGHT + dirty_data_signature)
         comment = text2art(">>  A  data  cleaning  tool")
         print(Fore.WHITE, Style.BRIGHT + comment)
-        print(Fore.CYAN, Style.BRIGHT+">> Created by Dave Guerrero. Email me at daveabdouguerrero@gmail.com for any questions or feedback.\n\n")
+        print(Fore.CYAN, Style.BRIGHT+">> Written by Dave Guerrero. Email me at daveabdouguerrero@gmail.com for any questions or feedback.\n")
 
         rows_to_display = 15
         sns.set(style = "darkgrid")
@@ -881,14 +877,18 @@ def main():
         print(Fore.WHITE + "\nHere are the files in your current directory you can use: "
         "{}\n".format(csv_files()))
 
-        file_name = ask_user("\nPlease enter the name of the .csv file you want to process. NOTE: If the .csv file is not in the same directory as this program, please provide relative path:\n >>",
+        file_name = ask_user("\nPlease enter the name of the .csv file you want to process. NOTE: If the .csv file is not in the same directory as this program, please provide relative path:\n >> ",
                              validator=os.path.isfile,
                              invalid="\nFile path does not exist. Please enter valid path.\nThese are the files in your current directory you can use {}".format(csv_files()))
 
+        data_dict = ask_user("\nIs this a data dictionary? NOTE: Data dictionaries will have a longer column-width in the terminal to accomodate longer strings.\n [0] No\n [1] Yes\n \nEnter Option: ")
+
+        if data_dict == "1" or data_dict == "yes":
+            pd.set_option('max_colwidth', 500)
+
         display_all_columns = ask_user("\nDo you want to display all the columns in your dataset? NOTE: If your dataset is very wide (has many columns) it may result in a less readable format."
                                        "\n[0] No\n[1] Yes.\n\nEnter Option:")
-
-        if display_all_columns == '1':
+        if display_all_columns == "1":
             pd.set_option('display.max_columns', None)
 
         pd.set_option('display.max_rows', 500)
@@ -903,25 +903,26 @@ def main():
         "----------------------------------------------------------------------------------------------------------------------------------\n")
         print(df.head(30))
 
-        clean_data = ask_user("Would you like DirtyData to tidy up your data?\n [0] No\n [1] Yes\n \nEnter Option: ")
+        clean_data = ask_user("\nWould you like DirtyData to tidy up your data?\n [0] No\n [1] Yes\n \nEnter Option: ")
 
-        if clean_data.lower() == '1' or 'yes':
+        if clean_data.lower() == '1' or clean_data == 'yes':
             df.clean_data()
 
         while True:
             option = ask_user("\nNOTE: Type 'menu' at any point to return to option menu, 'print' to display first 50 rows,"
-                              " 'tail' to display last 50 rows, 'info' to get dataset information, 'clear' to clear the screen, and 'exit' to terminate the program. \n\nColumn Operations (Enter number or type keyword)\n"
-            "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [0] Display Columns 'display_columns'\n\n [1] Rename Column 'rename'\n\n [2] Format Column 'format'\n\n [3] Melt Dataframe 'melt'\n\n [4] Set Column as Index 'set_index'\n\n"
-                              " [5] Drop Column 'drop_column'\n\n [6] Change Column Data Type 'change_d-type'\n\n [7] Fill NaN values 'fill_null'\n\n [8] Display One Column 'one_column'\n\n"
-                              " [9] Sort Column 'sort'\n\n [10] Display Variable Amnt. of Rows 'var_rows'\n\n [11] Find Value in Column 'find_value'\n\n"
+                              " 'tail' to display last 50 rows, 'info' to get dataset information, 'clear' to clear the screen, 'settings' to set display options, "
+                              "and 'exit' to terminate the program. \n\nColumn Operations (Enter number or type keyword)\n"
+                              "----------------------------------------------------------------------------------------------------------------------------------\n"
+                              " [0] Display Columns 'display_columns'\n [1] Rename Column 'rename'\n [2] Format Column 'format'\n [3] Melt Dataframe 'melt'\n [4] Set Column as Index 'set_index'\n"
+                              " [5] Drop Column 'drop_column'\n [6] Change Column Data Type 'change_d-type'\n [7] Fill NaN values 'fill_null'\n [8] Display One Column 'one_column'\n"
+                              " [9] Sort Column 'sort'\n [10] Display Variable Amnt. of Rows 'var_rows'\n [11] Find Value in Column 'find_value'\n"
                                "\nMath Operations\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [12] Sum Individual Column 'sum_one'\n\n [13] Sum Two Columns 'sum_two'\n\n [14] Group By Count 'group_count'\n\n [15] Group By Mean 'group_mean'\n\n"
-                              " [16] Get Min Value Of Column 'min'\n\n [17] Get Max Value Of Column 'max'\n\n"
+                              " [12] Sum Individual Column 'sum_one'\n [13] Sum Two Columns 'sum_two'\n [14] Group By Count 'group_count'\n [15] Group By Mean 'group_mean'\n"
+                              " [16] Get Max and Min Value Of Column 'limit'\n"
                                 "\nPlots & Charts\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [18] Distribution Plot 'dist_plot'\n\n [19] Scatter Plot 'scatter_plot'\n\n [20] Line Plot 'line_plot'\n\n"
+                              " [17] Distribution Plot 'dist_plot'\n [18] Scatter Plot 'scatter_plot'\n [19] Line Plot 'line_plot'\n"
                               " \nEnter Option:")
 
             if option == "0" or option.lower() == "all_columns":
@@ -972,19 +973,16 @@ def main():
             if option == "15" or option.lower() == "group_mean":
                 df.group_by_mean()
 
-            if option == "16" or option.lower() == "min":
-                df.min_value()
+            if option == "16" or option.lower() == "limit":
+                df.max_min_value()
 
-            if option == "17" or option.lower() == "max":
-                df.max_value()
-
-            if option == "18" or option.lower() == "dist_plot":
+            if option == "17" or option.lower() == "dist_plot":
                 df.dist_plot()
 
-            if option == "19" or option.lower() == "scatter_plot":
+            if option == "18" or option.lower() == "scatter_plot":
                 df.scatter_plot()
 
-            if option == "20" or option.lower() == "line_plot":
+            if option == "19" or option.lower() == "line_plot":
                 df.line_plot()
 
             if option == "test":
@@ -999,8 +997,8 @@ def main():
             if option == "info":
                 df.info(verbose=True)
 
-            if option == "switch column display":
-                pd.set_option('display.max_columns', None)
+            if option == "settings":
+                settings()
 
             if option == "clear":
                 clear_screen()
