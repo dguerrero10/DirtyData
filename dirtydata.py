@@ -46,7 +46,7 @@ class DataFrameHelper:
                     col_name = self.df.columns[col_position]
 
                     if col_str_numeric > 0.1:
-                        drop_column = ask_user(f"Column '{col_name}' appears to have numbers as a string. Would you like to change the data type to numeric?\n [0] No\n [1] Yes\n \nEnter Option:")
+                        drop_column = ask_user(f"Column '{col_name}' appears to have numbers as a string. Would you like to change the data type to numeric?\n [0] No\n [1] Yes\n \nEnter Option: ")
                         if drop_column == '1':
                             self.df[col_position] = self.df[col_position].astype(int)
 
@@ -78,6 +78,9 @@ class DataFrameHelper:
                     if drop_col == '2' or drop_col == 'Skip All':
                         return
 
+            if null_values < .30:
+                print("\nThere are no columns that have more than 30% null values.\n")
+
         except KeyboardInterrupt:
             print("Aborting...")
             return
@@ -106,7 +109,7 @@ class DataFrameHelper:
         print(table)
         print("\n\n")
 
-    def get_columns(self):
+    def display_all_columns(self):
         for index, col in enumerate(self.df.columns):
             print("--------------------------------------------------------------\n")
             print(f"{index}: {col}")
@@ -114,37 +117,102 @@ class DataFrameHelper:
     def search_columns(self):
         while True:
             try:
-                col = ask_user("What column would you like to search?\n >> ")
+                print(self.head(25))
+                print(" [0] Equal to value\n [1] Not Equal to value\n [2] Greater than value\n [3] Less than value\n")
+                query_kind = ask_user("What kind of query do you want to perform?\n >> ")
 
-                if col == "menu":
-                    return
-                else:
-                    value = ask_user("What value are you searching?\n >> ")
+                if query_kind == '0':
+                    col = ask_user("What column do you want to query?\n >> ")
+                    value = ask_user("What value do you want to look for?\n >> ")
 
-                    try:
-                        int(value)
-                        print(self.loc[self.df[col] == value])
+                    result = self.df[self.df[col] == value]
+
+                    if result.empty == True:
+                        print(f"\nThere are no {result.shape[0]} rows with '{col} == '{value}'.\n")
                         return
 
-                    except ValueError:
-                        pass
+                    print(result.head(10))
+                    print(result.tail(10))
+                    print(f"\nThere are {result.shape[0]} rows with '{col}' == '{value}'.\n")
 
-                    print(self.loc[self.df[col] == value])
+                    return
+
+                elif query_kind == '1':
+                    col = ask_user("What column do you want to query?\n >> ")
+                    value = ask_user("What value do you want to look for?\n >> ")
+
+                    result = self.df[self.df[col] != value]
+
+                    if result.empty == True:
+                        print(f"\nThere are no {result.shape[0]} rows with '{col} != '{value}'.\n")
+                        return
+
+                    print(result.head(10))
+                    print(result.tail(10))
+                    print(f"\nThere are {result.shape[0]} rows with '{col}' != '{value}'.\n")
+
+                    return
+
+
+                elif query_kind == '2':
+                    col = ask_user("What column do you want to query?\n >> ")
+                    value = ask_user("What value do you to compare it to?\n >> ")
+
+                    result = self.df[self.df[col] > value]
+
+                    if result.empty == True:
+                        print(f"\nThere are no {result.shape[0]} rows with '{col} > '{value}'.\n")
+                        return
+
+                    print(result.head(10))
+                    print(result.tail(10))
+                    print(f"\nThere are {result.shape[0]} rows with '{col}' > '{value}'.\n")
+
+                    return
+
+                elif query_kind == '3':
+                    col = ask_user("What column do you want to query?\n >> ")
+                    value = ask_user("What value do you to compare it to?\n >> ")
+
+                    result = self.df[self.df[col] < value]
+
+                    if result.empty == True:
+                        print(f"\nThere are no {result.shape[0]} rows with '{col} < '{value}'.\n")
+                        return
+
+                    print(result.head(10))
+                    print(result.tail(10))
+                    print(f"\nThere are {result.shape[0]} rows with '{col}' < '{value}'.\n")
+
                     return
 
             except KeyError as e:
                 print(e)
 
+    def slice_df(self):
+        while True:
+            try:
+                row_1 = int(ask_user("What row do you want to start slicing at?\n >> "))
+                row_2 =  int(ask_user("What row do you want to end at?\n >> "))
+
+                result = self.df.iloc[row_1:row_2]
+                print(result)
+                return
+
+            except ValueError:
+                print("Please pass an integer.")
+
+
     def melt_dataframe(self):
         while True:
             try:
-                answ = ask_user("\nWould you like to keep certain columns untouched? \n[0] No \n[1] Yes\n \nEnter Option:")
+                answ = ask_user("\nWould you like to keep certain columns untouched? \n[0] No \n[1] Yes\n \n >> ")
 
                 if answ == "menu":
                     return
 
                 elif answ == '1':
-                    self.get_columns()
+                    self.display_all_columns()
                     num = int(ask_user("Enter the number of columns you would like to leave untouched:\n >> "))
                     if num > 1:
                         id_columns = []
@@ -155,12 +223,12 @@ class DataFrameHelper:
                             counter += 1
 
                     pd.melt(self, id_columns)
-                    print(f"\n{self}")
+                    print(f"\n{self.head()}")
                     return
 
                 else:
                     pd.melt(self)
-                    print(f"\n{self}")
+                    print(f"\n{self.head()}")
                     return
 
             except KeyError as e:
@@ -174,7 +242,8 @@ class DataFrameHelper:
                 if col == "menu":
                     return
                 else:
-                    print(f"\n{self.df[col].head(100)}")
+                    print(f"\n{self.df[col].head(25)}")
+                    print(f"\n{self.df[col].tail(25)}")
                     return
 
             except KeyError:
@@ -194,11 +263,6 @@ class DataFrameHelper:
 
             except ValueError:
                 print("Please enter a number.\n >> ")
-
-    def find_value(self):
-        value = ask_user("What value are you searching for?\n >> ")
-        print(self.df.loc[value])
-        # print(self.df.isin([value]).any())
 
     def rename_column(self):
         while True:
@@ -225,16 +289,16 @@ class DataFrameHelper:
                 if col == 'menu':
                     return
                 else:
-                    answ = ask_user("In what order?\n [0] Ascending\n [1] Descending\n Enter option:")
+                    answ = ask_user("In what order?\n [0] Ascending\n [1] Descending\n \n >>")
 
                     try:
-                        if answ == "1":
+                        if answ == "0":
                             self.sort_values(col, ascending=True, inplace=True)
                             print(f"'\n Sorted '{col}' in ascending order"
                             "\n--------------------------------------------------------------\n")
                             print(f"{self.df[col].head(25)}")
                             print(f"{self.df[col].tail(25)}")
-                        elif answ == "2":
+                        elif answ == "1":
                             self.sort_values(col, ascending=False, inplace=True)
                             print(f"'\n Sorted '{col}' in descending order"
                             "\n--------------------------------------------------------------\n")
@@ -251,12 +315,12 @@ class DataFrameHelper:
         while True:
             try:
 
-                col = ask_user("What column would you like to format?\n >> ")
+                col = ask_user("\nWhat column would you like to format?\n >> ")
 
                 if col == "menu":
                     return
                 else:
-                    answ = ask_user("How would you like to format it?\n [1] Upper Case\n [2] Lower Case\n [3] Trim Whitespace\n [4] Remove Quotes\n Enter option: ")
+                    answ = ask_user("How would you like to format it?\n [1] Upper Case\n [2] Lower Case\n [3] Trim Whitespace\n [4] Remove Quotes\n >> ")
 
                     try:
                         if answ == "1":
@@ -294,7 +358,7 @@ class DataFrameHelper:
     def drop_column(self):
         while True:
             try:
-                col = ask_user("What column would you like to drop?\n")
+                col = ask_user("What column would you like to drop?\n >> ")
 
                 if col == "menu":
                     return
@@ -745,6 +809,29 @@ class DataFrameHelper:
             except DataError as e:
                 print(f"{e}\n")
 
+
+    def concat_dataframe(self):
+        while True:
+            try:
+                print(Fore.WHITE + "\nHere are the files in your current directory you can use: "
+                "{}\n".format(csv_files()))
+                file_name_2 = ask_user("\nPlease enter the name of the .csv file you want to concat. NOTE: If the .csv file is not in the same directory as this program, please provide relative path:\n >> ",
+                                     validator=os.path.isfile,
+                                     invalid="\nFile path does not exist. Please enter valid path.\nThese are the files in your current directory you can use {}".format(csv_files()))
+                missing_values = ["n/a", "na", "--"]
+                df_2 = pd.read_csv(file_name_2, na_values = missing_values, error_bad_lines = False)
+
+                concat_direction = ask_user("Do you want to concat the dataset horizontally or vertically?\n [0] horizontally\n [1] vertically\n \nEnter Option: ")
+                if concat_direction == "0":
+                    self.df = pd.concat([self.df, df_2], axis=0)
+                    return
+                if concat_direction == "1":
+                    self = pd.concat([self.df, df_2], axis=1)
+                    return
+
+            except ValueError as e:
+                print(e)
+
     def print_rows(self):
         print(self.head(15))
 
@@ -772,16 +859,17 @@ class DataFrameHelper:
     def EXIT(self):
         while True:
             try:
-                double_check = int(ask_user("\n Are you sure you want to exit the program? NOTE: Saying 'no' will return you to option menu.\n [0] No\n [1] Yes\n \nEnter option: "))
+                double_check = ask_user("\n Are you sure you want to exit the program? NOTE: Saying 'no' will return you to option menu.\n [0] No\n [1] Yes\n \nEnter option: ")
 
-                if double_check == 1:
-                    answ = int(ask_user("Do you want to save your changes first?\n [0] No\n [1] Yes\n \nEnter Option: "))
-                    if answ == 1:
+                if double_check == '1':
+                    answ = ask_user("Do you want to save your changes first?\n [0] No\n [1] Yes\n \nEnter Option: ")
+                    if answ == '1':
                         self.save_file()
                     else:
                         print("\nThanks for cleaning your dirty data!")
                         sys.exit()
-                else:
+
+                if double_check == '0':
                     return
 
             except KeyError as e:
@@ -910,23 +998,24 @@ def main():
 
         while True:
             option = ask_user("\nNOTE: Type 'menu' at any point to return to option menu, 'print' to display first 50 rows,"
-                              " 'tail' to display last 50 rows, 'info' to get dataset information, 'clear' to clear the screen, 'settings' to set display options, "
-                              "and 'exit' to terminate the program. \n\nColumn Operations (Enter number or type keyword)\n"
+                              " 'tail' to display last 50 rows, 'info' to get dataset information,\n'concat' to concatenate a dataframe or series,"
+                              " 'clear' to clear the screen, 'settings' to set display options, "
+                              "and 'exit' to terminate the program. \n\nColumn & Row Operations (Enter number or type keyword)\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [0] Display Columns 'display_columns'\n [1] Rename Column 'rename'\n [2] Format Column 'format'\n [3] Melt Dataframe 'melt'\n [4] Set Column as Index 'set_index'\n"
-                              " [5] Drop Column 'drop_column'\n [6] Change Column Data Type 'change_d-type'\n [7] Fill NaN values 'fill_null'\n [8] Display One Column 'one_column'\n"
-                              " [9] Sort Column 'sort'\n [10] Display Variable Amnt. of Rows 'var_rows'\n [11] Find Value in Column 'find_value'\n"
+                              " [0] Display All Columns 'display_columns'\n [1] Rename Column 'rename'\n [2] Format Column 'format'\n [3] Melt Dataframe 'melt'\n [4] Set Column as Index 'set_index'\n"
+                              " [5] Drop Column 'drop_column'\n [6] Search Column 'search_column'\n [7] Change Column Data Type 'change_d-type'\n [8] Fill NaN values 'fill_null'\n [9] Display One Column 'one_column'\n"
+                              " [10] Sort Column 'sort'\n [11] Display Subset of DataFrame 'slice'\n [12] Display Variable Amnt. of Rows 'var_rows'\n"
                                "\nMath Operations\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [12] Sum Individual Column 'sum_one'\n [13] Sum Two Columns 'sum_two'\n [14] Group By Count 'group_count'\n [15] Group By Mean 'group_mean'\n"
-                              " [16] Get Max and Min Value Of Column 'limit'\n"
+                              " [13] Sum Individual Column 'sum_one'\n [14] Sum Two Columns 'sum_two'\n [15] Group By Count 'group_count'\n [16] Group By Mean 'group_mean'\n"
+                              " [17] Get Max and Min Value Of Column 'limit'\n"
                                 "\nPlots & Charts\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [17] Distribution Plot 'dist_plot'\n [18] Scatter Plot 'scatter_plot'\n [19] Line Plot 'line_plot'\n"
+                              " [18] Distribution Plot 'dist_plot'\n [19] Scatter Plot 'scatter_plot'\n [20] Line Plot 'line_plot'\n"
                               " \nEnter Option:")
 
             if option == "0" or option.lower() == "all_columns":
-                df.get_columns()
+                df.display_all_columns()
 
             if option == '1' or option.lower() == "rename":
                 df.rename_column()
@@ -943,50 +1032,53 @@ def main():
             if option == '5' or option.lower() == "drop_column":
                 df.drop_column()
 
-            if option == '6' or option.lower() == "change_d-type":
+            if option == "6" or option.lower() == "search_column":
+                df.search_columns()
+
+            if option == '7' or option.lower() == "change_d-type":
                 df.change_column_d_type()
 
-            if option == '7' or option.lower() == "fill_null":
+            if option == '8' or option.lower() == "fill_null":
                 df.fill_nan_values()
 
-            if option == "8" or option.lower() == "one_column":
+            if option == "9" or option.lower() == "one_column":
                 df.display_n_column()
 
-            if option == "9" or option.lower() == "sort":
+            if option == "10" or option.lower() == "sort":
                 df.sort_column()
 
-            if option == "10" or option.lower() == "var_rows":
+            if option == "11" or option.lower() == "slice":
+                df.slice_df()
+
+            if option == "12" or option.lower() == "var_rows":
                 df.display_n_rows()
 
-            if option == "11" or option.lower() == "find_value":
-                df.find_value()
-
-            if option == "12" or option.lower() == "sum_one":
+            if option == "13" or option.lower() == "sum_one":
                 df.sum_individual_column()
 
-            if option == "13" or option.lower() == "sum_two":
+            if option == "14" or option.lower() == "sum_two":
                 df.sum_two_columns()
 
-            if option == "14" or option.lower() == "group_count":
+            if option == "15" or option.lower() == "group_count":
                 df.group_by_count()
 
-            if option == "15" or option.lower() == "group_mean":
+            if option == "16" or option.lower() == "group_mean":
                 df.group_by_mean()
 
-            if option == "16" or option.lower() == "limit":
+            if option == "17" or option.lower() == "limit":
                 df.max_min_value()
 
-            if option == "17" or option.lower() == "dist_plot":
+            if option == "18" or option.lower() == "dist_plot":
                 df.dist_plot()
 
-            if option == "18" or option.lower() == "scatter_plot":
+            if option == "19" or option.lower() == "scatter_plot":
                 df.scatter_plot()
 
-            if option == "19" or option.lower() == "line_plot":
+            if option == "20" or option.lower() == "line_plot":
                 df.line_plot()
 
-            if option == "test":
-                df.search_columns()
+            if option == "concat":
+                df.concat_dataframe()
 
             if option == "print":
                 df.print_rows()
