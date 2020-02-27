@@ -45,10 +45,10 @@ class DataFrameHelper:
                     col_str_numeric = 100 * series.str.isnumeric().sum() / len(series)
                     col_name = self.df.columns[col_position]
 
-                    if col_str_numeric > 0.1:
+                    if col_str_numeric > 0.01:
                         drop_column = ask_user(f"Column '{col_name}' appears to have numbers as a string. Would you like to change the data type to numeric?\n [0] No\n [1] Yes\n \nEnter Option: ")
                         if drop_column == '1':
-                            self.df[col_position] = self.df[col_position].astype(int)
+                            self.df[col_position] = pd.to_numeric(col_position, errors='ignore')
 
                     #Checking to see if column row has only white space and removing it
                     print(f"\nChecking rows in '{col_name}' for white space and removing items...")
@@ -114,11 +114,45 @@ class DataFrameHelper:
             print("--------------------------------------------------------------\n")
             print(f"{index}: {col}")
 
+    def display_subset_columns(self):
+        while True:
+            try:
+                slice_method = ask_user("\nDo you want to slice columns by index or column names?\n [0] names\n [1] index\n \nEnter Option: ")
+
+                if slice_method == '0':
+                    col_1 = ask_user("Enter the first column name\n >> ")
+                    col_2 = ask_user("Enter the second column name\n >> ")
+
+                    print(self.df.loc[:, col_1:col_2].head(50))
+                    return
+
+                if slice_method == '1':
+
+                    col_1 = int(ask_user("Enter the first index\n >> "))
+                    col_2 = int(ask_user("Enter the second index\n >> "))
+
+                    print(self.df.iloc[:, col_1:col_2].head(50))
+                    return
+
+            except KeyError as e:
+                print(f"There is no column named {e}")
+            except ValueError:
+                print("Please pass an integer\n")
+
+    def drop_null_values(self):
+        try:
+            col = ask_user("\nWhat column do you want to target\n >> ")
+            self.dropna(subset=[col], inplace=True)
+            print(self.df[col])
+            return
+        except ValueError as e:
+            print(e)
+
     def search_columns(self):
         while True:
             try:
                 print(self.head(25))
-                print(" [0] Equal to value\n [1] Not Equal to value\n [2] Greater than value\n [3] Less than value\n")
+                print("[0] Equal to value\n [1] Not Equal to value\n [2] Greater than value\n [3] Less than value\n")
                 query_kind = ask_user("What kind of query do you want to perform?\n >> ")
 
                 if query_kind == '0':
@@ -607,6 +641,7 @@ class DataFrameHelper:
                     print(self.df[col].min())
 
                     return
+
                 else:
                     print(f"\nThe max value of column '{col}' is: ")
                     print(self.df[col].max())
@@ -619,6 +654,8 @@ class DataFrameHelper:
                 print(e)
             except ValueError:
                 print("Please pass a number.")
+            except TypeError as e:
+                print(e)
 
 #Charts & Plots
     def dist_plot(self):
@@ -832,6 +869,12 @@ class DataFrameHelper:
             except ValueError as e:
                 print(e)
 
+    def split_df(self):
+         self = np.split(self, [2,3], axis=1)
+         print(self[0])
+         print(self[1])
+         print(self[2])
+
     def print_rows(self):
         print(self.head(15))
 
@@ -1002,16 +1045,16 @@ def main():
                               " 'clear' to clear the screen, 'settings' to set display options, "
                               "and 'exit' to terminate the program. \n\nColumn & Row Operations (Enter number or type keyword)\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [0] Display All Columns 'display_columns'\n [1] Rename Column 'rename'\n [2] Format Column 'format'\n [3] Melt Dataframe 'melt'\n [4] Set Column as Index 'set_index'\n"
-                              " [5] Drop Column 'drop_column'\n [6] Search Column 'search_column'\n [7] Change Column Data Type 'change_d-type'\n [8] Fill NaN values 'fill_null'\n [9] Display One Column 'one_column'\n"
-                              " [10] Sort Column 'sort'\n [11] Display Subset of DataFrame 'slice'\n [12] Display Variable Amnt. of Rows 'var_rows'\n"
+                              " [0] Display All Column Names || 'display_columns'\n [1] Rename Column || 'rename'\n [2] Format Column || 'format'\n [3] Melt Dataframe || 'melt'\n [4] Set Column as Index || 'set_index'\n"
+                              " [5] Drop Column || 'drop_column'\n [6] Search Column || 'search_column'\n [7] Change Column Data Type || 'change_d-type'\n [8] Fill NaN values || 'fill_null'\n [9] Display One Column || 'one_column'\n"
+                              " [10] Sort Column || 'sort'\n [11] Display Subset of DataFrame by columns || 'slice_col'\n [12] Display Subset of DataFrame by rows || 'slice_rows'\n [13] Display Variable Amnt. of Rows || 'var_rows'\n"
                                "\nMath Operations\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [13] Sum Individual Column 'sum_one'\n [14] Sum Two Columns 'sum_two'\n [15] Group By Count 'group_count'\n [16] Group By Mean 'group_mean'\n"
-                              " [17] Get Max and Min Value Of Column 'limit'\n"
+                              " [14] Sum Individual Column || 'sum_one'\n [15] Sum Two Columns || 'sum_two'\n [16] Group By Count || 'group_count'\n [17] Group By Mean || 'group_mean'\n"
+                              " [16] Get Max and Min Value Of Column || 'limit'\n"
                                 "\nPlots & Charts\n"
                               "----------------------------------------------------------------------------------------------------------------------------------\n"
-                              " [18] Distribution Plot 'dist_plot'\n [19] Scatter Plot 'scatter_plot'\n [20] Line Plot 'line_plot'\n"
+                              " [19] Distribution Plot || 'dist_plot'\n [20] Scatter Plot || 'scatter_plot'\n [21] Line Plot || 'line_plot'\n"
                               " \nEnter Option:")
 
             if option == "0" or option.lower() == "all_columns":
@@ -1047,34 +1090,37 @@ def main():
             if option == "10" or option.lower() == "sort":
                 df.sort_column()
 
-            if option == "11" or option.lower() == "slice":
+            if option == "11" or option.lower() == "slice_col":
+                df.display_subset_columns()
+
+            if option == "12" or option.lower() == "slice_rows":
                 df.slice_df()
 
-            if option == "12" or option.lower() == "var_rows":
+            if option == "13" or option.lower() == "var_rows":
                 df.display_n_rows()
 
-            if option == "13" or option.lower() == "sum_one":
+            if option == "14" or option.lower() == "sum_one":
                 df.sum_individual_column()
 
-            if option == "14" or option.lower() == "sum_two":
+            if option == "15" or option.lower() == "sum_two":
                 df.sum_two_columns()
 
-            if option == "15" or option.lower() == "group_count":
+            if option == "16" or option.lower() == "group_count":
                 df.group_by_count()
 
-            if option == "16" or option.lower() == "group_mean":
+            if option == "17" or option.lower() == "group_mean":
                 df.group_by_mean()
 
-            if option == "17" or option.lower() == "limit":
+            if option == "18" or option.lower() == "limit":
                 df.max_min_value()
 
-            if option == "18" or option.lower() == "dist_plot":
+            if option == "19" or option.lower() == "dist_plot":
                 df.dist_plot()
 
-            if option == "19" or option.lower() == "scatter_plot":
+            if option == "20" or option.lower() == "scatter_plot":
                 df.scatter_plot()
 
-            if option == "20" or option.lower() == "line_plot":
+            if option == "21" or option.lower() == "line_plot":
                 df.line_plot()
 
             if option == "concat":
