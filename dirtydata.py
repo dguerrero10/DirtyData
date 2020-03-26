@@ -24,7 +24,6 @@ class DataFrameHelper:
         except AttributeError:
             return getattr(self.df, name)
 
-
 #Data Cleaning Suggestions
     def clean_data(self):
         try:
@@ -139,15 +138,33 @@ class DataFrameHelper:
             except ValueError:
                 print("Please pass an integer\n")
 
-    def drop_null_values(self):
-        try:
-            col = ask_user("\nWhat column do you want to target\n >> ")
-            self.dropna(subset=[col], inplace=True)
-            print(self.df[col])
-            return
-        except ValueError as e:
-            print(e)
+    def chart_missing_values(self):
+        mno.bar(self.df, figsize=(12, 6), fontsize=12, color='steelblue')
+        plt.show()
 
+    #Impute null values using stochastic regression
+    def impute_values(self):
+        missing_columns = self.columns[self.isna().any()].tolist()
+        random_data = pd.DataFrame(columns = ["Ran" + name for name in missing_columns])
+
+        for feature in missing_columns:
+
+            random_data["Ran" + feature] = self.df[feature + '_imp']
+            parameters = list(set(self.df.columns) - set(missing_columns) - {feature + '_imp'})
+
+            model = linear_model.LinearRegression()
+            model.fit(X = self.df[parameters], y = self.df[feature + '_imp'])
+
+            #Standard Error of the regression estimates is equal to std() of the errors of each estimates
+            predict = model.predict(self.df[parameters])
+            std_error = (predict[self.df[feature].notnull()] - self.df.loc[self.df[feature].notnull(), feature + '_imp']).std()
+
+            #observe that I preserve the index of the missing data from the original dataframe
+            random_predict = np.random.normal(size = self.df[feature].shape[0],
+                                              loc = predict,
+                                              scale = std_error)
+            random_data.loc[(self.df[feature].isnull()) & (random_predict > 0), "Ran" + feature] = random_predict[(self.df[feature].isnull()) &
+                                                                                    (random_predict > 0)]
     def search_columns(self):
         while True:
             try:
@@ -985,11 +1002,14 @@ def settings():
 import os
 import sys
 import time
+import readline
 import pandas as pd
 from pandas.core.groupby.groupby import DataError
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import missingno as mno
+from sklearn import linear_model
 import re
 import sys
 from art import *
@@ -1119,6 +1139,12 @@ def main():
 
             if option == "20" or option.lower() == "scatter_plot":
                 df.scatter_plot()
+
+            if option == "test":
+                df.impute_values()
+
+            if option == "test2":
+                df.chart_missing_values()
 
             if option == "21" or option.lower() == "line_plot":
                 df.line_plot()
