@@ -37,6 +37,7 @@ class DataFrameHelper:
             column_length = len(columns)
 
             col_position = 0
+
             for i in range(1, column_length):
                 series = self.df.iloc[:, col_position]
                 try:
@@ -84,36 +85,163 @@ class DataFrameHelper:
             print("Aborting...")
             return
 
-#Column Operations
+#Display Null Values
+##########################
+
+    #Display bar chart of missing values
+    def chart_missing_values(self):
+        mno.bar(self.df, figsize=(12, 6), fontsize=12, color='steelblue')
+        plt.show()
+
+    #Display null values in percentages 
     def n_percent_nulls(self):
-        return self.isnull().sum() *100 / self.shape[0]
+        print(self.isna().mean().round(4) * 100)
 
-    def get_missing_values(self):
-        print("\n\n")
-        zero_val = (self.df == 0.00).astype(int).sum(axis=0)
-        missing_val = self.df.isnull().sum()
-        missing_val_percent = 100 * self.df.isnull().sum() / len(self.df)
-        table = pd.concat([zero_val, missing_val, missing_val_percent], axis=1)
-        table = table.rename(
-        columns = {0 : 'Zero Values', 1 : 'Missing Values', 2 : '% of Total Values'})
-        table['Total Zero Missing Values'] = table['Zero Values'] + table['Missing Values']
-        table['% Total Zero Missing Values'] = 100 * table['Total Zero Missing Values'] / len(self.df)
-        table['Data Type'] = self.df.dtypes
-        table = table[
-        table.iloc[:,1] != 0].sort_values(
-        '% of Total Values', ascending=False).round(1)
-        print ("Your selected dataframe has " + str(self.df.shape[1]) + " columns and " + str(self.df.shape[0]) + " Rows.\n"
-            "There are " + str(table.shape[0]) +
-              " columns that have missing values.\n")
-        print(table)
-        print("\n\n")
+    #Fill in null values
+    def fill_nan_values(self):
+        self.get_columns()
+        col = ask_user("What column would you like to change?\n")
 
+        if col ==  "menu":
+            return
+        else:
+            answ = ask_user("Choose how you would like to fill in the values:\n")
+
+            if answ == "mean":
+                self.df[col] = self.df[col].fillna((self.df[col].mean()), inplace=True)
+            elif answ == "zero":
+                self.df[col] = self.df[col].fillna(0, inplace=True)
+            elif answ == "value":
+                value = ask_user("What kind of value will this be, an int or string?\n")
+                if value == "int":
+                    value = int(ask_user("What value would you like to use?\n"))
+                    self.df[col] = self.df[col].fillna(value=value, inplace=True)
+                else:
+                    v = ask_user("What value would you like to use?\n")
+                    self.df[col] = self.df[col].fillna(value=value, inplace=True)
+
+
+    #Fill in null values using stochastic regression
+    def impute_values(self):
+        missing_columns = self.columns[self.isna().any()].tolist()
+        random_data = pd.DataFrame(columns = ["Ran" + name for name in missing_columns])
+
+        for feature in missing_columns:
+
+            random_data["Ran" + feature] = self.df[feature + '_imp']
+            parameters = list(set(self.df.columns) - set(missing_columns) - {feature + '_imp'})
+
+            model = linear_model.LinearRegression()
+            model.fit(X = self.df[parameters], y = self.df[feature + '_imp'])
+
+            #Standard Error of the regression estimates is equal to std() of the errors of each estimates
+            predict = model.predict(self.df[parameters])
+            std_error = (predict[self.df[feature].notnull()] - self.df.loc[self.df[feature].notnull(), feature + '_imp']).std()
+
+            #observe that I preserve the index of the missing data from the original dataframe
+            random_predict = np.random.normal(size = self.df[feature].shape[0],
+                                                loc = predict,
+                                                scale = std_error)
+            random_data.loc[(self.df[feature].isnull()) & (random_predict > 0), "Ran" + feature] = random_predict[(self.df[feature].isnull()) &
+                                                                                    (random_predict > 0)]
+
+    # def get_missing_values(self):
+    #     print("\n\n")
+    #     zero_val = (self.df == 0.00).astype(int).sum(axis=0)
+    #     missing_val = self.df.isnull().sum()
+    #     missing_val_percent = 100 * self.df.isnull().sum() / len(self.df)
+    #     table = pd.concat([zero_val, missing_val, missing_val_percent], axis=1)
+    #     table = table.rename(
+    #     columns = {0 : 'Zero Values', 1 : 'Missing Values', 2 : '% of Total Values'})
+    #     table['Total Zero Missing Values'] = table['Zero Values'] + table['Missing Values']
+    #     table['% Total Zero Missing Values'] = 100 * table['Total Zero Missing Values'] / len(self.df)
+    #     table['Data Type'] = self.df.dtypes
+    #     table = table[
+    #     table.iloc[:,1] != 0].sort_values(
+    #     '% of Total Values', ascending=False).round(1)
+    #     print ("Your selected dataframe has " + str(self.df.shape[1]) + " columns and " + str(self.df.shape[0]) + " Rows.\n"
+    #         "There are " + str(table.shape[0]) +
+    #           " columns that have missing values.\n")
+    #     print(table)
+    #     print("\n\n")
+
+#Column Operations
+##########################
+
+    #Change dataframe from "wide" to "long"
+    def melt_dataframe(self):
+        while True:
+            try:
+                answ = ask_user("\nWould you like to keep certain columns untouched? \n[0] No \n[1] Yes\n \n >> ")
+
+                if answ == "menu":
+                    return
+
+                elif answ == '1':
+                    self.display_all_columns()
+                    num = int(ask_user("Enter the number of columns you would like to leave untouched:\n >> "))
+                    if num > 1:
+                        id_columns = []
+                        counter = 0
+                        while counter < num:
+                            col = ask_user(f"Enter one {counter + 1} the {num} columns:\n >> ")
+                            id_columns.append(col)
+                            counter += 1
+
+                    pd.melt(self, id_columns)
+                    print(f"\n{self.head()}")
+                    return
+
+                else:
+                    pd.melt(self)
+                    print(f"\n{self.head()}")
+                    return
+
+            except KeyError as e:
+                print(e)
+
+    #Display all column names
     def display_all_columns(self):
         for index, col in enumerate(self.df.columns):
             print("--------------------------------------------------------------\n")
             print(f"{index}: {col}")
 
-    def display_subset_columns(self):
+    #Display a single column 
+    def display_x_column(self):
+        while True:
+            try:
+                col = ask_user("What column do you want to display?\n >> ")
+
+                if col == "menu":
+                    return
+                else:
+                    print(f"\n{self.df[col].head(50)}")
+                    print(f"\n{self.df[col].tail(50)}")
+                    return
+
+            except KeyError:
+                print(f"\nThere is no column named '{col}.' Please enter a valid column name.")
+
+    #Rename a single column
+    def rename_column(self):
+        while True:
+            try:
+                col = ask_user("What column do you want to rename?\n >> ")
+
+                if col == "menu":
+                    return
+                else:
+                    name = ask_user("what would you like to rename it to?\n >> ")
+                    self = self.rename(columns={col:name}, inplace=True)
+                    print(f"\nRenamed column '{col}' to '{name}'\n"
+                    "--------------------------------------------------------------\n")
+                    return
+
+            except KeyError:
+                print(f"There is no column named '{col}'. Please enter a valid column name.")
+
+    #Display a subset of dataframe by slicing it based on columns
+    def slice_df_columns(self):
         while True:
             try:
                 slice_method = ask_user("\nDo you want to slice columns by index or column names?\n [0] names\n [1] index\n \nEnter Option: ")
@@ -138,33 +266,21 @@ class DataFrameHelper:
             except ValueError:
                 print("Please pass an integer\n")
 
-    def chart_missing_values(self):
-        mno.bar(self.df, figsize=(12, 6), fontsize=12, color='steelblue')
-        plt.show()
+    #Display a subset of dataframe by slicing it based on rows
+    def slice_df_rows(self):
+        while True:
+            try:
+                row_1 = int(ask_user("What row do you want to start slicing at?\n >> "))
+                row_2 =  int(ask_user("What row do you want to end at?\n >> "))
 
-    #Impute null values using stochastic regression
-    def impute_values(self):
-        missing_columns = self.columns[self.isna().any()].tolist()
-        random_data = pd.DataFrame(columns = ["Ran" + name for name in missing_columns])
+                result = self.df.iloc[row_1:row_2]
+                print(result)
+                return
 
-        for feature in missing_columns:
+            except ValueError:
+                print("Please pass an integer.")
 
-            random_data["Ran" + feature] = self.df[feature + '_imp']
-            parameters = list(set(self.df.columns) - set(missing_columns) - {feature + '_imp'})
-
-            model = linear_model.LinearRegression()
-            model.fit(X = self.df[parameters], y = self.df[feature + '_imp'])
-
-            #Standard Error of the regression estimates is equal to std() of the errors of each estimates
-            predict = model.predict(self.df[parameters])
-            std_error = (predict[self.df[feature].notnull()] - self.df.loc[self.df[feature].notnull(), feature + '_imp']).std()
-
-            #observe that I preserve the index of the missing data from the original dataframe
-            random_predict = np.random.normal(size = self.df[feature].shape[0],
-                                              loc = predict,
-                                              scale = std_error)
-            random_data.loc[(self.df[feature].isnull()) & (random_predict > 0), "Ran" + feature] = random_predict[(self.df[feature].isnull()) &
-                                                                                    (random_predict > 0)]
+    #Seach columns based on criteria
     def search_columns(self):
         while True:
             try:
@@ -240,99 +356,8 @@ class DataFrameHelper:
             except KeyError as e:
                 print(e)
 
-    def slice_df(self):
-        while True:
-            try:
-                row_1 = int(ask_user("What row do you want to start slicing at?\n >> "))
-                row_2 =  int(ask_user("What row do you want to end at?\n >> "))
-
-                result = self.df.iloc[row_1:row_2]
-                print(result)
-                return
-
-            except ValueError:
-                print("Please pass an integer.")
-
-
-    def melt_dataframe(self):
-        while True:
-            try:
-                answ = ask_user("\nWould you like to keep certain columns untouched? \n[0] No \n[1] Yes\n \n >> ")
-
-                if answ == "menu":
-                    return
-
-                elif answ == '1':
-                    self.display_all_columns()
-                    num = int(ask_user("Enter the number of columns you would like to leave untouched:\n >> "))
-                    if num > 1:
-                        id_columns = []
-                        counter = 0
-                        while counter < num:
-                            col = ask_user(f"Enter one {counter + 1} the {num} columns:\n >> ")
-                            id_columns.append(col)
-                            counter += 1
-
-                    pd.melt(self, id_columns)
-                    print(f"\n{self.head()}")
-                    return
-
-                else:
-                    pd.melt(self)
-                    print(f"\n{self.head()}")
-                    return
-
-            except KeyError as e:
-                print(e)
-
-    def display_n_column(self):
-        while True:
-            try:
-                col = ask_user("What column do you want to display?\n >> ")
-
-                if col == "menu":
-                    return
-                else:
-                    print(f"\n{self.df[col].head(25)}")
-                    print(f"\n{self.df[col].tail(25)}")
-                    return
-
-            except KeyError:
-                print(f"\nThere is no column named '{col}.' Please enter a valid column name.")
-
-    def display_n_rows(self):
-        while True:
-            try:
-                rows = int(ask_user("How many rows do you want to display?\n >> "))
-
-                if rows == "menu":
-                    return
-                else:
-                    pd.set_option('display.max_rows', rows)
-                    print(self.df.head(rows))
-                    return
-
-            except ValueError:
-                print("Please enter a number.\n >> ")
-
-    def rename_column(self):
-        while True:
-            try:
-                col = ask_user("What column do you want to rename?\n >> ")
-
-                if col == "menu":
-                    return
-                else:
-                    name = ask_user("what would you like to rename it to?\n >> ")
-                    self = self.rename(columns={col:name}, inplace=True)
-                    print(f"\nRenamed column '{col}' to '{name}'\n"
-                    "--------------------------------------------------------------\n")
-                    return
-
-            except KeyError:
-                print(f"There is no column named '{col}'. Please enter a valid column name.")
-
-    def sort_column(self):
+  #Sort column in ascending or descending value            
+  def sort_column(self):
         while True:
             try:
                 col = ask_user("What column would you like to sort?\n >> ")
@@ -361,7 +386,8 @@ class DataFrameHelper:
                         print(f"Please enter a valid option.")
             except KeyError:
                 print(f"There is no column named '{col}'. Please enter a valid column name.")
-
+            
+    #Format column based on criteria
     def format_column(self):
         while True:
             try:
@@ -392,6 +418,23 @@ class DataFrameHelper:
             except KeyError:
                 print(f"There is no column named '{col}'. Please enter a valid column name.")
 
+    #Display a variable number of rows
+    def display_n_rows(self):
+        while True:
+            try:
+                rows = int(ask_user("How many rows do you want to display?\n >> "))
+
+                if rows == "menu":
+                    return
+                else:
+                    pd.set_option('display.max_rows', rows)
+                    print(self.df.head(rows))
+                    return
+
+            except ValueError:
+                print("Please enter a number.\n >> ")
+
+    #Set index of dataframe
     def set_index(self):
         while True:
             try:
@@ -406,6 +449,7 @@ class DataFrameHelper:
             except KeyError as e:
                 print(f"There is no column named '{col}'. Please enter a valid column name.")
 
+    #Drop a single column
     def drop_column(self):
         while True:
             try:
@@ -421,6 +465,7 @@ class DataFrameHelper:
             except KeyError:
                 print(f"There is no column named '{col}'\n")
 
+    #Change datatype of column
     def change_column_d_type(self):
         while True:
             try:
@@ -453,28 +498,6 @@ class DataFrameHelper:
                 print("Cannot apply transformation to that column because data type is incompatibale.\n")
             except KeyError:
                 print(f"There is no column named '{col}'\n")
-
-    def fill_nan_values(self):
-        self.get_columns()
-        col = ask_user("What column would you like to change?\n")
-
-        if col ==  "menu":
-            return
-        else:
-            answ = ask_user("Choose how you would like to fill in the values:\n")
-
-            if answ == "mean":
-                self.df[col] = self.df[col].fillna((self.df[col].mean()), inplace=True)
-            elif answ == "zero":
-                self.df[col] = self.df[col].fillna(0, inplace=True)
-            elif answ == "value":
-                value = ask_user("What kind of value will this be, an int or string?\n")
-                if value == "int":
-                    value = int(ask_user("What value would you like to use?\n"))
-                    self.df[col] = self.df[col].fillna(value=value, inplace=True)
-                else:
-                    v = ask_user("What value would you like to use?\n")
-                    self.df[col] = self.df[col].fillna(value=value, inplace=True)
 
     #Math Functions
     def sum_individual_column(self):
@@ -513,6 +536,81 @@ class DataFrameHelper:
                         return
             except KeyError:
                 print(f"Please choose valid column names.")
+
+    def get_mean(self):
+        while True:
+            try:
+                col = ask_user("What column do you want the mean of?\n >> ")
+
+                if col == "menu":
+                    return
+            
+                print(f"\nThe mean of '{col}' is {self.df[col].mean()}")
+                return
+
+            except KeyError as e:
+                print(e)
+
+            except ValueError as e:
+                print(e)
+
+    def get_median(self):
+        while True:
+            try:
+                col = ask_user("What column do you want the median of?\n >> ")
+
+                if col == "menu":
+                    return
+            
+                print(f"\nThe mean of '{col}' is {self.df[col].median()}")
+                return
+
+            except KeyError as e:
+                print(e)
+
+            except ValueError as e:
+                print(e)
+
+    def value_counts(self):
+        while True:
+            try: 
+                col = ask_user("What column do you want to get the count of?\n >> ")
+
+                if col == "menu":
+                    return
+
+                bins = ask_user("Do you want to provide bins?\n [0] No\n [1] Yes\n >> ")
+
+                if bins == "0" or bins == "No":
+                    print(self.df[col].value_counts())
+                    return
+                else:
+                    quant_bins = ask_user("How many bins would you like to use?\n >> ")
+                    print(self.df[col].value_counts(bins=quant_bins))
+                    return
+
+            except KeyError as e:
+                print(e)
+            except ValueError as e:
+                print(e)
+
+    def group_by_mean(self):
+        while True:
+            try: 
+                col = ask_user("What column do you want to group by:\n >> ")
+
+                if col == "menu":
+                    return
+                
+                col_aggr = ask_user("Enter the column you want to group on:\n >> ")
+
+                print(self.groupby(col).mean()[[col_aggr]])
+                return
+            except KeyError as e:
+                print(e)
+            except ValueError as e:
+                print(e)
+            
 
     def group_by_count(self):
         while True:
@@ -579,70 +677,70 @@ class DataFrameHelper:
             except ValueError:
                 print("Please pass a number.")
 
-    def group_by_mean(self):
-        while True:
-            try:
-                num = int(ask_user("Enter the number of columns you want to group on:\n >> "))
+    # def group_by_mean(self):
+    #     while True:
+    #         try:
+    #             num = int(ask_user("Enter the number of columns you want to group on:\n >> "))
 
-                if num == "menu":
-                    return
-                else:
-                    if num > 1:
-                        id_columns_group = []
-                        counter = 0
-                        while counter < num:
-                            col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
-                            if col == "menu":
-                                return
-                            else:
-                                id_columns_group.append(col)
-                                counter += 1
-                        num = int(ask_user("How many columns do you want to perform the operation on?\n >> "))
-                        if num > 1:
-                            id_columns_aggr = []
-                            counter = 0
-                            while counter < num:
-                                col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
-                                if col == "menu":
-                                    return
-                                else:
-                                    id_columns_aggr.append(col)
-                                    counter += 1
+    #             if num == "menu":
+    #                 return
+    #             else:
+    #                 if num > 1:
+    #                     id_columns_group = []
+    #                     counter = 0
+    #                     while counter < num:
+    #                         col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
+    #                         if col == "menu":
+    #                             return
+    #                         else:
+    #                             id_columns_group.append(col)
+    #                             counter += 1
+    #                     num = int(ask_user("How many columns do you want to perform the operation on?\n >> "))
+    #                     if num > 1:
+    #                         id_columns_aggr = []
+    #                         counter = 0
+    #                         while counter < num:
+    #                             col = ask_user(f"Enter {counter + 1} of the {num} columns:\n >> ")
+    #                             if col == "menu":
+    #                                 return
+    #                             else:
+    #                                 id_columns_aggr.append(col)
+    #                                 counter += 1
 
-                                    print("\n\n")
-                                    print(self.groupby(id_columns_group)[id_columns_aggr].mean())
-                                    print("\n\n")
+    #                                 print("\n\n")
+    #                                 print(self.groupby(id_columns_group)[id_columns_aggr].mean())
+    #                                 print("\n\n")
 
-                                    return
-                        elif num == 1:
-                            col = ask_user("What column do you want to perform the operation on?\n >> ")
+    #                                 return
+    #                     elif num == 1:
+    #                         col = ask_user("What column do you want to perform the operation on?\n >> ")
 
-                            if col == "menu":
-                                return
-                            else:
-                                print("\n\n")
-                                print(self.groupby(id_columns_group)[col].mean())
-                                print("\n\n")
+    #                         if col == "menu":
+    #                             return
+    #                         else:
+    #                             print("\n\n")
+    #                             print(self.groupby(id_columns_group)[col].mean())
+    #                             print("\n\n")
 
-                                return
+    #                             return
 
-                    if num == 1:
-                        id_column_group = ask_user("What column do you want to group on?\n >> ")
-                        id_column_aggr = ask_user("What column do you want to perform the operation on?\n >>")
+    #                 if num == 1:
+    #                     id_column_group = ask_user("What column do you want to group on?\n >> ")
+    #                     id_column_aggr = ask_user("What column do you want to perform the operation on?\n >>")
 
-                        if id_column_group == "menu" or id_column_aggr == "menu":
-                            return
-                        else:
-                            print("\n\n")
-                            print(self.groupby(id_column_group)[id_column_aggr].mean())
-                            print("\n\n")
+    #                     if id_column_group == "menu" or id_column_aggr == "menu":
+    #                         return
+    #                     else:
+    #                         print("\n\n")
+    #                         print(self.groupby(id_column_group)[id_column_aggr].mean())
+    #                         print("\n\n")
 
-                            return
+    #                         return
 
-            except KeyError as e:
-                print(e)
-            except ValueError:
-                print("Please pass a number.")
+    #         except KeyError as e:
+    #             print(e)
+    #         except ValueError:
+    #             print("Please pass a number.")
 
     def max_min_value(self):
         while True:
@@ -1002,14 +1100,14 @@ def settings():
 import os
 import sys
 import time
-import readline
+# import readline
 import pandas as pd
 from pandas.core.groupby.groupby import DataError
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import missingno as mno
-from sklearn import linear_model
+# from sklearn import linear_model
 import re
 import sys
 from art import *
@@ -1141,7 +1239,7 @@ def main():
                 df.scatter_plot()
 
             if option == "test":
-                df.impute_values()
+                df.n_percent_nulls()
 
             if option == "test2":
                 df.chart_missing_values()
